@@ -3,24 +3,57 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
 	"github.com/StephenCotterrell/pokedexcli/internal/pokeapi"
 )
 
-var (
-	supportedCommands map[string]cliCommand
-	cfg               Config
-)
+type config struct {
+	pokeapiClient    pokeapi.Client
+	nextLocationsURL *string
+	prevLocationsURL *string
+}
 
-func init() {
-	next := pokeapi.BaseLocationAreaURL
-	cfg.Next = &next
-	cfg.Previous = nil
+func startRepl(cfg *config) {
+	reader := bufio.NewScanner(os.Stdin)
 
-	supportedCommands = map[string]cliCommand{
+	for {
+		fmt.Print("Pokedex > ")
+		reader.Scan()
+		input := cleanInput(reader.Text())
+		if len(input) == 0 {
+			continue
+		}
+		commandName := input[0]
+
+		command, exists := getCommands()[commandName]
+		if exists {
+			err := command.callback(cfg)
+			if err != nil {
+				fmt.Println(err)
+			}
+			continue
+		} else {
+			fmt.Printf("Unknown command\n")
+			continue
+		}
+	}
+}
+
+type cliCommand struct {
+	name        string
+	description string
+	callback    func(*config) error
+}
+
+func cleanInput(text string) []string {
+	cleanedInput := strings.Fields(strings.ToLower(text))
+	return cleanedInput
+}
+
+func getCommands() map[string]cliCommand {
+	return map[string]cliCommand{
 		"exit": {
 			name:        "exit",
 			description: "Exit the Pokedex",
@@ -34,97 +67,12 @@ func init() {
 		"map": {
 			name:        "map",
 			description: "Displays the next 20 location areas",
-			callback:    commandGetNextLocationAreas,
+			callback:    commandMapf,
 		},
 		"mapb": {
 			name:        "mapb",
-			description: "Displays the next 20 location areas",
-			callback:    commandGetPreviousLocationAreas,
+			description: "Displays the previous 20 location areas",
+			callback:    commandMapb,
 		},
 	}
-}
-
-func startRepl() {
-	reader := bufio.NewScanner(os.Stdin)
-
-	for {
-		fmt.Print("Pokedex > ")
-		reader.Scan()
-		input := reader.Text()
-
-		command, ok := supportedCommands[input]
-
-		if !ok {
-			fmt.Printf("Unknown command\n")
-		} else {
-			if err := command.callback(&cfg); err != nil {
-				fmt.Printf("there was an error: %w", err)
-			}
-		}
-	}
-}
-
-func commandGetNextLocationAreas(config *Config) error {
-	LocationAreas, err := pokeapi.GetLocationAreas(*config.Next)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	config.Next = LocationAreas.Next
-	config.Previous = LocationAreas.Previous
-
-	for _, location := range LocationAreas.Results {
-		fmt.Printf("%s\n", location.Name)
-	}
-	return nil
-}
-
-func commandGetPreviousLocationAreas(config *Config) error {
-	if config.Previous == nil {
-		fmt.Printf("you're on the first page\n")
-		return nil
-	}
-
-	LocationAreas, err := pokeapi.GetLocationAreas(*config.Previous)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	config.Next = LocationAreas.Next
-	config.Previous = LocationAreas.Previous
-
-	for _, location := range LocationAreas.Results {
-		fmt.Printf("%s\n", location.Name)
-	}
-	return nil
-}
-
-func commandExit(config *Config) error {
-	fmt.Printf("Closing the Pokedex... Goodbye!\n")
-	os.Exit(0)
-	return nil
-}
-
-func commandHelp(config *Config) error {
-	fmt.Printf("Welcome to the Pokedex! \nUsage: \n\n")
-	for command := range supportedCommands {
-		fmt.Printf("%s: %s\n", supportedCommands[command].name, supportedCommands[command].description)
-	}
-	return nil
-}
-
-type Config struct {
-	Next     *string
-	Previous *string
-}
-
-type cliCommand struct {
-	name        string
-	description string
-	callback    func(*Config) error
-}
-
-func cleanInput(text string) []string {
-	cleanedInput := strings.Fields(strings.ToLower(text))
-	return cleanedInput
 }
