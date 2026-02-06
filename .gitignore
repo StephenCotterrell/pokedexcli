@@ -1,3 +1,5 @@
 pokedexcli
 repl.log
 internal/pokeapi/example.json
+internal/pokeapi/example2.json
+internal/pokeapi/example3.json
