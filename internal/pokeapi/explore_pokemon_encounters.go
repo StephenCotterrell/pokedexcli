@@ -33,7 +33,6 @@ func (c *Client) ExploreLocationPokemon(location string) (PokemonEncountersList,
 	if res.StatusCode != http.StatusOK {
 		return PokemonEncountersList{}, fmt.Errorf("response had non-ok status code: %d", res.StatusCode)
 	}
-	// defer res.Body.Close()
 
 	defer func() {
 		if cerr := res.Body.Close(); err != nil && cerr != nil {
